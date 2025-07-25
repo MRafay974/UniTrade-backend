@@ -46,7 +46,7 @@ router.post("/create-checkout-session", async (req, res) => {
 });
 
 // ✅ Route 2: Stripe Webhook for Payment Confirmation
-router.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+router.post("/webhook", async (req, res) => {
   const sig = req.headers["stripe-signature"];
   let event;
 
