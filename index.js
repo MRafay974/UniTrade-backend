@@ -10,7 +10,9 @@ const orderRouter = require("./routes/order");
 const adminRouter = require("./routes/admin");
 const checkoutRouter=require("./routes/checkout")
 const path = require("path");
-require("./models/db");
+connectDB=require("./models/db");
+
+connectDB()
 
 app.use("/uploads", express.static(path.join(__dirname, "/uploads")));
 

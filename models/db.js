@@ -1,9 +1,16 @@
-const mongoose=require("mongoose")
+const mongoose = require("mongoose");
 
-const conn_string=process.env.mongo_conn
+const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) {
+    return; // Already connected
+  }
 
-mongoose.connect(conn_string).then(()=>{
-    console.log("MongoDB Connected")
-}).catch(()=>{
-    console.log("MongoDB Disconnected")
-})
+  try {
+    await mongoose.connect(process.env.mongo_conn);
+    console.log("✅ MongoDB Connected");
+  } catch (error) {
+    console.error("❌ MongoDB Connection Error:", error.message);
+  }
+};
+
+module.exports = connectDB;
