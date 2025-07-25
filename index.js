@@ -37,6 +37,8 @@ app.use("/cart", cartRouter);
 app.use("/wishlist", wishlistRouter);
 app.use("/order", orderRouter);
 app.use("/admin", adminRouter);
+app.use("/user", userRoutes);
+
 
 
 app.use("/checkout", checkoutRouter)
