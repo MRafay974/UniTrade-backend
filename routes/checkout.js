@@ -63,18 +63,20 @@ router.post("/webhook", async (req, res) => {
 
     try {
       const newOrder = new Order({
-        productId,
-        amount,
-        sellerEmail,
-        buyer: {
-          name: buyerName || "Stripe Customer",
-          phone: buyerPhone || "N/A",
-        },
-        paymentMethod: "card",
-        pickupLocation: "", // Not needed for card payment
-        status: "paid",
-        stripePaymentId: session.id,
-      });
+  user: userId, // Required field
+  productId,
+  amount,
+  total: amount, // Or calculate if multiple items
+  sellerEmail,
+  buyer: {
+    name: buyerName || "Stripe Customer",
+    phone: buyerPhone || "N/A",
+  },
+  paymentMethod: "card",
+  pickupLocation: "",
+  status: "paid",
+  stripePaymentId: session.id
+});
 
       await newOrder.save();
       console.log("✅ Order saved successfully:", newOrder);
