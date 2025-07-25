@@ -9,6 +9,7 @@ const wishlistRouter = require("./routes/wishlist");
 const orderRouter = require("./routes/order");
 const adminRouter = require("./routes/admin");
 const checkoutRouter=require("./routes/checkout")
+const userRoutes = require("./routes/user");
 const path = require("path");
 connectDB=require("./models/db");
 
