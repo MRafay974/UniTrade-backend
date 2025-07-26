@@ -128,88 +128,132 @@ router.post("/create-checkout-session", async (req, res) => {
 //   res.json({ received: true });
 // });
 
+// router.post("/webhook", async (req, res) => {
+//   const sig = req.headers["stripe-signature"];
+//   let event;
 
-router.post("/webhook", async (req, res) => {
-  const sig = req.headers["stripe-signature"];
-  let event;
+//   try {
+//     // ✅ Verify Stripe webhook signature
+//     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+//     console.log("✅ Webhook verified:", event.type);
+//   } catch (err) {
+//     console.error("❌ Webhook signature verification failed:", err.message);
+//     return res.status(400).send(`Webhook Error: ${err.message}`);
+//   }
 
+//   if (event.type === "checkout.session.completed") {
+//     const session = event.data.object;
+
+//     // ✅ Extract metadata for both cases
+//     const {
+//       cartItems,      // For multi-item checkout
+//       productId,      // For single product checkout
+//       name,           // Product name for single checkout
+//       amount,         // Price for single product
+//       userId,
+//       buyerName,
+//       buyerPhone,
+//       sellerEmail
+//     } = session.metadata;
+
+//     let formattedItems = [];
+//     let total = 0;
+
+//     try {
+//       if (cartItems) {
+//         // ✅ Multi-item checkout
+//         const items = JSON.parse(cartItems); // [{ productId, quantity, price }]
+//         formattedItems = items.map(item => ({
+//           product: item.productId,
+//           quantity: item.quantity,
+//           price: item.price,
+//           name: item.name || "Unknown Product"
+//         }));
+//         total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+//       } else if (productId && amount) {
+//         // ✅ Single product checkout
+//         formattedItems = [{
+//           product: productId,
+//           name: name || "Unnamed Product",
+//           quantity: 1,
+//           price: parseFloat(amount)
+//         }];
+//         total = parseFloat(amount);
+//       }
+//     } catch (err) {
+//       console.error("❌ Error processing items:", err);
+//     }
+
+//     try {
+//       // ✅ Create new order
+//       const newOrder = new Order({
+//         user: userId,
+//         items: formattedItems,
+//         total,
+//         buyer: {
+//           name: buyerName || "Stripe Customer",
+//           phone: buyerPhone || "N/A"
+//         },
+//         sellerEmail,
+//         paymentMethod: "card",
+//         status: "paid",
+//         pickupLocation: "",
+//         stripePaymentId: session.id
+//       });
+
+//       await newOrder.save();
+//       console.log("✅ Order saved successfully:", newOrder);
+//     } catch (error) {
+//       console.error("❌ Error saving order:", error);
+//     }
+//   }
+
+//   res.json({ received: true });
+// });
+
+
+router.get("/verify-payment/:sessionId", async (req, res) => {
   try {
-    // ✅ Verify Stripe webhook signature
-    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-    console.log("✅ Webhook verified:", event.type);
-  } catch (err) {
-    console.error("❌ Webhook signature verification failed:", err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
+    const session = await stripe.checkout.sessions.retrieve(req.params.sessionId);
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
+    if (session.payment_status === "paid") {
+      // ✅ Extract metadata
+      const {
+        productId,
+        name,
+        amount,
+        userId,
+        buyerName,
+        buyerPhone,
+        sellerEmail
+      } = session.metadata;
 
-    // ✅ Extract metadata for both cases
-    const {
-      cartItems,      // For multi-item checkout
-      productId,      // For single product checkout
-      name,           // Product name for single checkout
-      amount,         // Price for single product
-      userId,
-      buyerName,
-      buyerPhone,
-      sellerEmail
-    } = session.metadata;
-
-    let formattedItems = [];
-    let total = 0;
-
-    try {
-      if (cartItems) {
-        // ✅ Multi-item checkout
-        const items = JSON.parse(cartItems); // [{ productId, quantity, price }]
-        formattedItems = items.map(item => ({
-          product: item.productId,
-          quantity: item.quantity,
-          price: item.price,
-          name: item.name || "Unknown Product"
-        }));
-        total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      } else if (productId && amount) {
-        // ✅ Single product checkout
-        formattedItems = [{
-          product: productId,
-          name: name || "Unnamed Product",
-          quantity: 1,
-          price: parseFloat(amount)
-        }];
-        total = parseFloat(amount);
-      }
-    } catch (err) {
-      console.error("❌ Error processing items:", err);
-    }
-
-    try {
-      // ✅ Create new order
+      // ✅ Save order in DB
       const newOrder = new Order({
         user: userId,
-        items: formattedItems,
-        total,
-        buyer: {
-          name: buyerName || "Stripe Customer",
-          phone: buyerPhone || "N/A"
-        },
+        items: [{
+          product: productId,
+          name: name,
+          quantity: 1,
+          price: parseFloat(amount)
+        }],
+        total: parseFloat(amount),
+        buyer: { name: buyerName, phone: buyerPhone },
         sellerEmail,
         paymentMethod: "card",
         status: "paid",
-        pickupLocation: "",
         stripePaymentId: session.id
       });
 
       await newOrder.save();
-      console.log("✅ Order saved successfully:", newOrder);
-    } catch (error) {
-      console.error("❌ Error saving order:", error);
+      return res.json({ success: true, order: newOrder });
     }
-  }
 
-  res.json({ received: true });
+    res.status(400).json({ success: false, message: "Payment not completed" });
+  } catch (error) {
+    console.error("Error verifying payment:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
 });
 
 

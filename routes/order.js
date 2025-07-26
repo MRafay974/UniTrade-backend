@@ -6,8 +6,10 @@ const jwt = require("jsonwebtoken");
 function getUserId(req) {
   const auth = req.headers.authorization;
   if (!auth) return null;
+  
+  const token = auth.startsWith("Bearer ") ? auth.split(" ")[1] : auth; // Extract token
   try {
-    const decoded = jwt.verify(auth, process.env.Secret_key);
+    const decoded = jwt.verify(token, process.env.Secret_key);
     return decoded._id;
   } catch {
     return null;
