@@ -6,47 +6,8 @@ const router = express.Router();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 // ✅ Route 1: Create Stripe Checkout Session
-// router.post("/create-checkout-session", async (req, res) => {
-//   const { product, userId, buyerName, buyerPhone } = req.body;
-
-//   try {
-//     const session = await stripe.checkout.sessions.create({
-//       payment_method_types: ["card"],
-//       mode: "payment",
-//       success_url: "http://localhost:5173/payment-success?session_id={CHECKOUT_SESSION_ID}",
-//       cancel_url: "http://localhost:5173/payment-cancel",
-//       line_items: [
-//         {
-//           price_data: {
-//             currency: "usd",
-//             product_data: {
-//               name: product.name,
-//               images: ["https://via.placeholder.com/300"],
-//             },
-//             unit_amount: product.price * 100,
-//           },
-//           quantity: 1,
-//         },
-//       ],
-//       metadata: {
-//         productId: product._id,
-//         amount: product.price,
-//         sellerEmail: product.userEmail,
-//         userId: userId,
-//         buyerName: buyerName,
-//         buyerPhone: buyerPhone,
-//       },
-//     });
-
-//     res.json({ url: session.url });
-//   } catch (error) {
-//     console.error("Stripe Error:", error);
-//     res.status(500).json({ error: error.message });
-//   }
-// });
-
 router.post("/create-checkout-session", async (req, res) => {
-  const { cartItems, userId, buyerName, buyerPhone, sellerEmail } = req.body;
+  const { product, userId, buyerName, buyerPhone } = req.body;
 
   try {
     const session = await stripe.checkout.sessions.create({
@@ -54,24 +15,27 @@ router.post("/create-checkout-session", async (req, res) => {
       mode: "payment",
       success_url: "http://localhost:5173/payment-success?session_id={CHECKOUT_SESSION_ID}",
       cancel_url: "http://localhost:5173/payment-cancel",
-      line_items: JSON.parse(cartItems).map(item => ({
-        price_data: {
-          currency: "usd",
-          product_data: {
-            name: item.name,
-            images: ["https://via.placeholder.com/300"]
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: product.name,
+              images: ["https://via.placeholder.com/300"],
+            },
+            unit_amount: product.price * 100,
           },
-          unit_amount: item.price * 100
+          quantity: 1,
         },
-        quantity: item.quantity
-      })),
+      ],
       metadata: {
-        cartItems, // Stringified cart array
-        userId,
-        buyerName,
-        buyerPhone,
-        sellerEmail
-      }
+        productId: product._id,
+        amount: product.price,
+        sellerEmail: product.userEmail,
+        userId: userId,
+        buyerName: buyerName,
+        buyerPhone: buyerPhone,
+      },
     });
 
     res.json({ url: session.url });
@@ -80,6 +44,42 @@ router.post("/create-checkout-session", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// router.post("/create-checkout-session", async (req, res) => {
+//   const { cartItems, userId, buyerName, buyerPhone, sellerEmail } = req.body;
+
+//   try {
+//     const session = await stripe.checkout.sessions.create({
+//       payment_method_types: ["card"],
+//       mode: "payment",
+//       success_url: "http://localhost:5173/payment-success?session_id={CHECKOUT_SESSION_ID}",
+//       cancel_url: "http://localhost:5173/payment-cancel",
+//       line_items: JSON.parse(cartItems).map(item => ({
+//         price_data: {
+//           currency: "usd",
+//           product_data: {
+//             name: item.name,
+//             images: ["https://via.placeholder.com/300"]
+//           },
+//           unit_amount: item.price * 100
+//         },
+//         quantity: item.quantity
+//       })),
+//       metadata: {
+//         cartItems, // Stringified cart array
+//         userId,
+//         buyerName,
+//         buyerPhone,
+//         sellerEmail
+//       }
+//     });
+
+//     res.json({ url: session.url });
+//   } catch (error) {
+//     console.error("Stripe Error:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// });
 
 
 
