@@ -29,6 +29,7 @@ router.post("/create-checkout-session", async (req, res) => {
         },
       ],
       metadata: {
+        name: product.name,
         productId: product._id,
         amount: product.price,
         sellerEmail: product.userEmail,
@@ -133,6 +134,7 @@ router.post("/webhook", async (req, res) => {
   let event;
 
   try {
+    // ✅ Verify Stripe webhook signature
     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
     console.log("✅ Webhook verified:", event.type);
   } catch (err) {
@@ -143,27 +145,48 @@ router.post("/webhook", async (req, res) => {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
 
-    // ✅ Extract metadata
-    const { cartItems, userId, buyerName, buyerPhone, sellerEmail } = session.metadata;
+    // ✅ Extract metadata for both cases
+    const {
+      cartItems,      // For multi-item checkout
+      productId,      // For single product checkout
+      name,           // Product name for single checkout
+      amount,         // Price for single product
+      userId,
+      buyerName,
+      buyerPhone,
+      sellerEmail
+    } = session.metadata;
 
-    let items = [];
+    let formattedItems = [];
     let total = 0;
 
     try {
-      // ✅ Parse cart items
-      items = JSON.parse(cartItems); // [{ productId, quantity, price }]
-      total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      if (cartItems) {
+        // ✅ Multi-item checkout
+        const items = JSON.parse(cartItems); // [{ productId, quantity, price }]
+        formattedItems = items.map(item => ({
+          product: item.productId,
+          quantity: item.quantity,
+          price: item.price,
+          name: item.name || "Unknown Product"
+        }));
+        total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      } else if (productId && amount) {
+        // ✅ Single product checkout
+        formattedItems = [{
+          product: productId,
+          name: name || "Unnamed Product",
+          quantity: 1,
+          price: parseFloat(amount)
+        }];
+        total = parseFloat(amount);
+      }
     } catch (err) {
-      console.error("❌ Error parsing cart items:", err);
+      console.error("❌ Error processing items:", err);
     }
 
     try {
-      const formattedItems = items.map(item => ({
-        product: item.productId,
-        quantity: item.quantity,
-        price: item.price
-      }));
-
+      // ✅ Create new order
       const newOrder = new Order({
         user: userId,
         items: formattedItems,
@@ -180,7 +203,7 @@ router.post("/webhook", async (req, res) => {
       });
 
       await newOrder.save();
-      console.log("✅ Multi-item order saved successfully:", newOrder);
+      console.log("✅ Order saved successfully:", newOrder);
     } catch (error) {
       console.error("❌ Error saving order:", error);
     }
