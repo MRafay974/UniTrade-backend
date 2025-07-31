@@ -44,23 +44,74 @@ function getUserId(req) {
 //   res.json(order);
 // });
 
+// router.post("/place", async (req, res) => {
+//   const userId = getUserId(req);
+//   if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+//   const { shippingAddress, paymentMethod, buyerName, buyerPhone } = req.body;
+
+//   const cart = await Cart.findOne({ user: userId }).populate("items.product");
+//   if (!cart || cart.items.length === 0)
+//     return res.status(400).json({ message: "Cart is empty" });
+
+//   const items = cart.items.map((i) => ({
+//     product: i.product._id,
+//     quantity: i.quantity,
+//     price: i.product.price
+//   }));
+
+//   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+
+//   const order = new Order({
+//     user: userId,
+//     items,
+//     total,
+//     buyer: {
+//       name: buyerName,
+//       phone: buyerPhone
+//     },
+//     paymentMethod,
+//     shippingAddress,
+//     status: paymentMethod === "card" ? "pending_payment" : "pending_cash"
+//   });
+
+//   await order.save();
+//   cart.items = [];
+//   await cart.save();
+
+//   res.json({ success: true, message: "Order placed successfully", order });
+// });
+
 router.post("/place", async (req, res) => {
   const userId = getUserId(req);
   if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-  const { shippingAddress, paymentMethod, buyerName, buyerPhone } = req.body;
+  const { productId, amount, paymentMethod, pickupLocation, sellerEmail, buyerName, buyerPhone } = req.body;
 
-  const cart = await Cart.findOne({ user: userId }).populate("items.product");
-  if (!cart || cart.items.length === 0)
-    return res.status(400).json({ message: "Cart is empty" });
+  let items = [];
+  let total = 0;
 
-  const items = cart.items.map((i) => ({
-    product: i.product._id,
-    quantity: i.quantity,
-    price: i.product.price
-  }));
-
-  const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  if (productId) {
+    // ✅ Direct product checkout
+    items.push({
+      product: productId,
+      quantity: 1,
+      price: amount
+    });
+    total = amount;
+  } else {
+    // ✅ Fallback: Check cart
+    const cart = await Cart.findOne({ user: userId }).populate("items.product");
+    if (!cart || cart.items.length === 0) {
+      return res.status(400).json({ message: "Cart is empty" });
+    }
+    items = cart.items.map(i => ({
+      product: i.product._id,
+      quantity: i.quantity,
+      price: i.product.price
+    }));
+    total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  }
 
   const order = new Order({
     user: userId,
@@ -70,17 +121,27 @@ router.post("/place", async (req, res) => {
       name: buyerName,
       phone: buyerPhone
     },
+    sellerEmail,
     paymentMethod,
-    shippingAddress,
+    pickupLocation,
     status: paymentMethod === "card" ? "pending_payment" : "pending_cash"
   });
 
   await order.save();
-  cart.items = [];
-  await cart.save();
+
+  // ✅ If used cart, clear it
+  if (!productId) {
+    const cart = await Cart.findOne({ user: userId });
+    if (cart) {
+      cart.items = [];
+      await cart.save();
+    }
+  }
 
   res.json({ success: true, message: "Order placed successfully", order });
 });
+
+
 
 
 // Get user's orders
