@@ -13,8 +13,8 @@ router.post("/create-checkout-session", async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
-      success_url: `${process.env.URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.URL}/payment-cancel`,
+      success_url: "https://uniitrade.netlify.app/payment-success?session_id={CHECKOUT_SESSION_ID}",
+      cancel_url: "https://uniitrade.netlify.app/payment-cancel",
       line_items: [
         {
           price_data: {
